@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🚑 Ambulance Detection with ml5.js</title>
+
+  <!-- ✅ Load p5.js first -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  
+  <!-- ✅ Load ml5.js properly -->
+  <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+
+  <style>
+    body {
+      background: #101010;
+      color: #eee;
+      text-align: center;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    video, canvas {
+      border-radius: 10px;
+      box-shadow: 0 0 10px #0f0;
+      margin-top: 10px;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      background: #00b894;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover { background: #019070; }
+  </style>
+</head>
+<body>
+  <h1>🚦 Real-time Ambulance Detection</h1>
+  <video id="video" width="480" height="360" autoplay muted></video>
+  <canvas id="canvas" width="480" height="360"></canvas>
+  <br>
+  <button id="connect">🔌 Connect to Arduino</button>
+  <p id="status">Status: Loading models...</p>
+
+  <script>
+    let video;
+    let cocoModel;
+    let detections = [];
+    let ctx;
+    let port, writer;
+    let connected = false;
+
+    // Load models after page loads
+    window.addEventListener('load', setup);
+
+    async function setup() {
+      // Initialize webcam
+      video = document.getElementById('video');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = stream;
+
+      const canvas = document.getElementById('canvas');
+      ctx = canvas.getContext('2d');
+
+      // ✅ Load object detection model (COCO-SSD)
+      cocoModel = await ml5.objectDetector('cocossd');
+      document.getElementById('status').innerText = "Model Loaded ✅";
+
+      detectObjects();
+    }
+
+    async function detectObjects() {
+      cocoModel.detect(video, async (err, results) => {
+        if (err) {
+          console.error(err);
+          requestAnimationFrame(detectObjects);
+          return;
+        }
+
+        detections = results;
+        ctx.drawImage(video, 0, 0, 480, 360);
+        let ambulanceDetected = false;
+
+        for (let obj of detections) {
+          const { label, confidence, x, y, width, height } = obj;
+
+          // Focus on vehicle types
+          if (["car", "bus", "truck"].includes(label.toLowerCase())) {
+            ctx.strokeStyle = "#0f0";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, width, height);
+            ctx.fillStyle = "#0f0";
+            ctx.font = "12px Arial";
+            ctx.fillText(`${label} ${(confidence * 100).toFixed(1)}%`, x + 4, y + 12);
+
+            // 🔹 Extract text from the region using Tesseract.js directly
+            // (ml5 OCR model is experimental, we'll use Tesseract instead)
+            const cropped = document.createElement('canvas');
+            cropped.width = width;
+            cropped.height = height;
+            const cctx = cropped.getContext('2d');
+            cctx.drawImage(video, x, y, width, height, 0, 0, width, height);
+
+            const dataUrl = cropped.toDataURL();
+            const { createWorker } = Tesseract;
+            const worker = await createWorker("eng", 1);
+            const { data: { text } } = await worker.recognize(dataUrl);
+            await worker.terminate();
+
+            if (text.toUpperCase().includes("AMBULANCE")) {
+              ctx.strokeStyle = "#f00";
+              ctx.lineWidth = 3;
+              ctx.strokeRect(x, y, width, height);
+              ctx.fillStyle = "#f00";
+              ctx.font = "18px Arial";
+              ctx.fillText("🚑 AMBULANCE DETECTED", x + 4, y - 5);
+              document.getElementById('status').innerText = "🚨 AMBULANCE DETECTED! Sending signal...";
+              ambulanceDetected = true;
+            }
+          }
+        }
+
+        if (ambulanceDetected && connected && writer) {
+          await writer.write(new TextEncoder().encode("1"));
+          console.log("Sent '1' to Arduino");
+        } else if (!ambulanceDetected) {
+          document.getElementById('status').innerText = "No ambulance detected.";
+        }
+
+        requestAnimationFrame(detectObjects);
+      });
+    }
+
+    // ✅ Connect to Arduino
+    document.getElementById('connect').addEventListener('click', async () => {
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+        writer = port.writable.getWriter();
+        connected = true;
+        document.getElementById('status').innerText = "Connected to Arduino ✅";
+      } catch (err) {
+        console.error("Serial error:", err);
+      }
+    });
+  </script>
+
+  <!-- ✅ Load Tesseract OCR (for text detection) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+</body>
+</html>

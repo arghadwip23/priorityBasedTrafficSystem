@@ -1,0 +1,215 @@
+A51 MACRO ASSEMBLER  TEST                                                                 11/08/2025 01:12:54 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\test.obj
+ASSEMBLER INVOKED BY: C:\Users\argha\Desktop\testing\C51\BIN\A51.EXE test.a51 SET(SMALL) DEBUG PRINT(.\Listings\test.lst
+                      ) OBJECT(.\Objects\test.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     ;============================================================
+                       2     ; 4-WAY TRAFFIC LIGHT SYSTEM (N, E, S, W)
+                       3     ; Ambulance Priority on INT0 (North direction gets priority)
+                       4     ;============================================================
+                       5     
+0000                   6     ORG 0000H
+0000 8003              7     SJMP START
+                       8     
+0003                   9     ORG 0003H
+0003 8050             10     SJMP AMBULANCE_ISR
+                      11     
+                      12     ;--------------------------
+                      13     ; Bit definitions
+                      14     ;--------------------------
+                      15     
+                      16     ; North Lights
+  0090                17     N_Red    BIT P1.0
+  0091                18     N_Yel    BIT P1.1
+  0092                19     N_Grn    BIT P1.2
+                      20     
+                      21     ; East Lights
+  0093                22     E_Red    BIT P1.3
+  0094                23     E_Yel    BIT P1.4
+  0095                24     E_Grn    BIT P1.5
+                      25     
+                      26     ; South Lights
+  00A0                27     S_Red    BIT P2.0
+  00A1                28     S_Yel    BIT P2.1
+  00A2                29     S_Grn    BIT P2.2
+                      30     
+                      31     ; West Lights
+  00A3                32     W_Red    BIT P2.3
+  00A4                33     W_Yel    BIT P2.4
+  00A5                34     W_Grn    BIT P2.5
+                      35     
+                      36     ;============================================================
+                      37     ; MAIN PROGRAM
+                      38     ;============================================================
+0005                  39     START:
+0005 8581A8           40         MOV IE, 10000001B    ; Enable EA + EX0
+0008 850188           41         MOV TCON, 00000001B  ; INT0 edge-triggered
+                      42     
+000B                  43     MAIN_LOOP:
+                      44     
+                      45     ;============================================================
+                      46     ; PHASE 1: North-South GREEN, East-West RED
+                      47     ;============================================================
+                      48         ; NS = Green
+000B D292             49         SETB N_Grn
+000D C291             50         CLR  N_Yel
+000F C290             51         CLR  N_Red
+                      52     
+0011 D2A2             53         SETB S_Grn
+0013 C2A1             54         CLR  S_Yel
+0015 C2A0             55         CLR  S_Red
+                      56     
+                      57         ; EW = Red
+A51 MACRO ASSEMBLER  TEST                                                                 11/08/2025 01:12:54 PAGE     2
+
+0017 D293             58         SETB E_Red
+0019 C294             59         CLR  E_Yel
+001B C295             60         CLR  E_Grn
+                      61     
+001D D2A3             62         SETB W_Red
+001F C2A4             63         CLR  W_Yel
+0021 C2A5             64         CLR  W_Grn
+                      65     
+0023 116D             66         ACALL DELAY5s
+                      67     
+                      68     ;============================================================
+                      69     ; PHASE 2: North-South YELLOW, East-West RED
+                      70     ;============================================================
+0025 D291             71         SETB N_Yel
+0027 C292             72         CLR  N_Grn
+                      73     
+0029 D2A1             74         SETB S_Yel
+002B C2A2             75         CLR  S_Grn
+                      76     
+002D 1166             77         ACALL DELAY2s
+                      78     
+                      79     ;============================================================
+                      80     ; PHASE 3: East-West GREEN, North-South RED
+                      81     ;============================================================
+                      82         ; EW Green
+002F D295             83         SETB E_Grn
+0031 C294             84         CLR  E_Yel
+0033 C293             85         CLR  E_Red
+                      86     
+0035 D2A5             87         SETB W_Grn
+0037 C2A4             88         CLR  W_Yel
+0039 C2A3             89         CLR  W_Red
+                      90     
+                      91         ; NS Red
+003B D290             92         SETB N_Red
+003D C291             93         CLR  N_Yel
+003F C292             94         CLR  N_Grn
+                      95     
+0041 D2A0             96         SETB S_Red
+0043 C2A1             97         CLR  S_Yel
+0045 C2A2             98         CLR  S_Grn
+                      99     
+0047 116D            100         ACALL DELAY5s
+                     101     
+                     102     ;============================================================
+                     103     ; PHASE 4: East-West YELLOW, North-South RED
+                     104     ;============================================================
+0049 D294            105         SETB E_Yel
+004B C295            106         CLR  E_Grn
+                     107     
+004D D2A4            108         SETB W_Yel
+004F C2A5            109         CLR  W_Grn
+                     110     
+0051 1166            111         ACALL DELAY2s
+                     112     
+0053 80B6            113         SJMP MAIN_LOOP
+                     114     
+                     115     ;============================================================
+                     116     ; AMBULANCE PRIORITY (INT0)
+                     117     ; Only NORTH gets green priority
+                     118     ;============================================================
+0055                 119     AMBULANCE_ISR:
+                     120     
+                     121         ; ALL directions red first
+0055 D290            122         SETB N_Red
+0057 D293            123         SETB E_Red
+A51 MACRO ASSEMBLER  TEST                                                                 11/08/2025 01:12:54 PAGE     3
+
+0059 D2A0            124         SETB S_Red
+005B D2A3            125         SETB W_Red
+                     126     
+                     127         ; NORTH green priority
+005D D292            128         SETB N_Grn
+005F C290            129         CLR  N_Red
+0061 C291            130         CLR  N_Yel
+                     131     
+0063 116D            132         ACALL DELAY5s     ; Give time for ambulance
+                     133     
+0065 32              134         RETI
+                     135     
+                     136     ;============================================================
+                     137     ; Delay routines
+                     138     ;============================================================
+                     139     
+0066                 140     DELAY2s:
+0066 7F28            141         MOV R7,#40
+0068                 142     D2_LOOP:
+0068 1174            143         ACALL DELAY50ms
+006A DFFC            144         DJNZ R7,D2_LOOP
+006C 22              145         RET
+                     146     
+006D                 147     DELAY5s:
+006D 7F64            148         MOV R7,#100
+006F                 149     D5_LOOP:
+006F 1174            150         ACALL DELAY50ms
+0071 DFFC            151         DJNZ R7,D5_LOOP
+0073 22              152         RET
+                     153     
+0074                 154     DELAY50ms:
+0074 7EC8            155         MOV R6,#200
+0076 7DC8            156     L1: MOV R5,#200
+0078 DDFE            157     L2: DJNZ R5,L2
+007A DEFA            158         DJNZ R6,L1
+007C 22              159         RET
+                     160     
+                     161     END
+A51 MACRO ASSEMBLER  TEST                                                                 11/08/2025 01:12:54 PAGE     4
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+AMBULANCE_ISR. . .  C ADDR   0055H   A   
+D2_LOOP. . . . . .  C ADDR   0068H   A   
+D5_LOOP. . . . . .  C ADDR   006FH   A   
+DELAY2S. . . . . .  C ADDR   0066H   A   
+DELAY50MS. . . . .  C ADDR   0074H   A   
+DELAY5S. . . . . .  C ADDR   006DH   A   
+E_GRN. . . . . . .  B ADDR   0090H.5 A   
+E_RED. . . . . . .  B ADDR   0090H.3 A   
+E_YEL. . . . . . .  B ADDR   0090H.4 A   
+IE . . . . . . . .  D ADDR   00A8H   A   
+L1 . . . . . . . .  C ADDR   0076H   A   
+L2 . . . . . . . .  C ADDR   0078H   A   
+MAIN_LOOP. . . . .  C ADDR   000BH   A   
+N_GRN. . . . . . .  B ADDR   0090H.2 A   
+N_RED. . . . . . .  B ADDR   0090H.0 A   
+N_YEL. . . . . . .  B ADDR   0090H.1 A   
+P1 . . . . . . . .  D ADDR   0090H   A   
+P2 . . . . . . . .  D ADDR   00A0H   A   
+START. . . . . . .  C ADDR   0005H   A   
+S_GRN. . . . . . .  B ADDR   00A0H.2 A   
+S_RED. . . . . . .  B ADDR   00A0H.0 A   
+S_YEL. . . . . . .  B ADDR   00A0H.1 A   
+TCON . . . . . . .  D ADDR   0088H   A   
+W_GRN. . . . . . .  B ADDR   00A0H.5 A   
+W_RED. . . . . . .  B ADDR   00A0H.3 A   
+W_YEL. . . . . . .  B ADDR   00A0H.4 A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)

@@ -1,0 +1,53 @@
+A51 MACRO ASSEMBLER  TESTING                                                              11/04/2025 13:18:09 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\testing.obj
+ASSEMBLER INVOKED BY: C:\Users\argha\Desktop\testing\C51\BIN\A51.EXE testing.a51 SET(SMALL) DEBUG PRINT(.\Listings\testi
+                      ng.lst) OBJECT(.\Objects\testing.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+0000                   1     ORG 00H
+                       2     
+0000                   3     MAIN:
+0000 758920            4         MOV TMOD, #20H     ; Timer1 Mode2
+0003 758DFD            5         MOV TH1, #0FDH     ; 9600 baud @ 11.0592 MHz
+0006 759850            6         MOV SCON, #50H     ; Serial mode 1, REN=1
+0009 D28E              7         SETB TR1           ; Start Timer1
+                       8     
+000B                   9     LOOP:
+000B 7441             10         MOV A, #'A'        ; Send test character
+000D 1111             11         ACALL TX
+000F 80FA             12         SJMP LOOP
+                      13     
+0011                  14     TX:
+0011 F599             15         MOV SBUF, A
+0013 3099FD           16     WAIT: JNB TI, WAIT
+0016 C299             17         CLR TI
+0018 22               18         RET
+                      19     END
+A51 MACRO ASSEMBLER  TESTING                                                              11/04/2025 13:18:09 PAGE     2
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+LOOP . . . . . . .  C ADDR   000BH   A   
+MAIN . . . . . . .  C ADDR   0000H   A   
+SBUF . . . . . . .  D ADDR   0099H   A   
+SCON . . . . . . .  D ADDR   0098H   A   
+TH1. . . . . . . .  D ADDR   008DH   A   
+TI . . . . . . . .  B ADDR   0098H.1 A   
+TMOD . . . . . . .  D ADDR   0089H   A   
+TR1. . . . . . . .  B ADDR   0088H.6 A   
+TX . . . . . . . .  C ADDR   0011H   A   
+WAIT . . . . . . .  C ADDR   0013H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
