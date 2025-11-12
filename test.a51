@@ -1,161 +1,123 @@
-;============================================================
-; 4-WAY TRAFFIC LIGHT SYSTEM (N, E, S, W)
-; Ambulance Priority on INT0 (North direction gets priority)
-;============================================================
+;===========================================================
+; TWO-WAY TRAFFIC LIGHT CONTROLLER WITH AMBULANCE PRIORITY
+; MCU   : AT89S52 (8051 family)
+; XTAL  : 12 MHz
+;===========================================================
 
 ORG 0000H
-SJMP START
+LJMP START        ; Main program start
 
+; --- Interrupt vector for external interrupt 0 (INT0) ---
 ORG 0003H
-SJMP AMBULANCE_ISR
+LJMP AMB_ISR
 
-;--------------------------
-; Bit definitions
-;--------------------------
+;===========================================================
+; BIT DEFINITIONS
+;===========================================================
 
-; North Lights
-N_Red    BIT P1.0
-N_Yel    BIT P1.1
-N_Grn    BIT P1.2
+; Main Road lights (Road A)
+A_RED   BIT P1.0
+A_YEL   BIT P1.1
+A_GRN   BIT P1.2
 
-; East Lights
-E_Red    BIT P1.3
-E_Yel    BIT P1.4
-E_Grn    BIT P1.5
+; Cross Road lights (Road B)
+B_RED   BIT P1.3
+B_YEL   BIT P1.4
+B_GRN   BIT P1.5
 
-; South Lights
-S_Red    BIT P2.0
-S_Yel    BIT P2.1
-S_Grn    BIT P2.2
+; Ambulance indicator LED
+AMB_IND BIT P2.0    ; P2.0 lights up during interrupt
 
-; West Lights
-W_Red    BIT P2.3
-W_Yel    BIT P2.4
-W_Grn    BIT P2.5
-
-;============================================================
+;===========================================================
 ; MAIN PROGRAM
-;============================================================
+;===========================================================
+
+ORG 0030H
 START:
-    MOV IE, 10000001B    ; Enable EA + EX0
-    MOV TCON, 00000001B  ; INT0 edge-triggered
+    MOV IE, #10000001B     ; EA=1, EX0=1 enable external interrupt
+    MOV TCON, #00000001B   ; Edge triggered INT0
+    CLR AMB_IND             ; Ensure indicator off at start
 
 MAIN_LOOP:
 
-;============================================================
-; PHASE 1: North-South GREEN, East-West RED
-;============================================================
-    ; NS = Green
-    SETB N_Grn
-    CLR  N_Yel
-    CLR  N_Red
+    ; --- MAIN ROAD GREEN, CROSS ROAD RED ---
+    CLR AMB_IND
+    SETB A_GRN
+    SETB B_RED
+    CLR  A_YEL
+    CLR  A_RED
+    CLR  B_YEL
+    CLR  B_GRN
+    ACALL DELAY10S
 
-    SETB S_Grn
-    CLR  S_Yel
-    CLR  S_Red
+    ; --- MAIN ROAD YELLOW ---
+    CLR  A_GRN
+    SETB A_YEL
+    ACALL DELAY3S
+    CLR  A_YEL
+    SETB A_RED
 
-    ; EW = Red
-    SETB E_Red
-    CLR  E_Yel
-    CLR  E_Grn
+    ; --- CROSS ROAD GREEN ---
+    SETB B_GRN
+    CLR  B_RED
+    ACALL DELAY10S
 
-    SETB W_Red
-    CLR  W_Yel
-    CLR  W_Grn
-
-    ACALL DELAY5s
-
-;============================================================
-; PHASE 2: North-South YELLOW, East-West RED
-;============================================================
-    SETB N_Yel
-    CLR  N_Grn
-
-    SETB S_Yel
-    CLR  S_Grn
-
-    ACALL DELAY2s
-
-;============================================================
-; PHASE 3: East-West GREEN, North-South RED
-;============================================================
-    ; EW Green
-    SETB E_Grn
-    CLR  E_Yel
-    CLR  E_Red
-
-    SETB W_Grn
-    CLR  W_Yel
-    CLR  W_Red
-
-    ; NS Red
-    SETB N_Red
-    CLR  N_Yel
-    CLR  N_Grn
-
-    SETB S_Red
-    CLR  S_Yel
-    CLR  S_Grn
-
-    ACALL DELAY5s
-
-;============================================================
-; PHASE 4: East-West YELLOW, North-South RED
-;============================================================
-    SETB E_Yel
-    CLR  E_Grn
-
-    SETB W_Yel
-    CLR  W_Grn
-
-    ACALL DELAY2s
+    ; --- CROSS ROAD YELLOW ---
+    CLR  B_GRN
+    SETB B_YEL
+    ACALL DELAY3S
+    CLR  B_YEL
+    SETB B_RED
 
     SJMP MAIN_LOOP
 
-;============================================================
-; AMBULANCE PRIORITY (INT0)
-; Only NORTH gets green priority
-;============================================================
-AMBULANCE_ISR:
+;===========================================================
+; AMBULANCE INTERRUPT SERVICE ROUTINE
+;===========================================================
+AMB_ISR:
+    SETB AMB_IND             ; Turn ON indicator on P2.0
+    SETB A_GRN               ; Main road green
+    CLR  A_RED
+    CLR  A_YEL
+    SETB B_RED
+    CLR  B_YEL
+    CLR  B_GRN
 
-    ; ALL directions red first
-    SETB N_Red
-    SETB E_Red
-    SETB S_Red
-    SETB W_Red
+    ACALL DELAY10S           ; 10 seconds ambulance priority
 
-    ; NORTH green priority
-    SETB N_Grn
-    CLR  N_Red
-    CLR  N_Yel
-
-    ACALL DELAY5s     ; Give time for ambulance
-
+    CLR  AMB_IND             ; Turn OFF indicator after ISR
+    SETB A_RED
+    CLR  A_GRN
     RETI
 
-;============================================================
-; Delay routines
-;============================================================
+;===========================================================
+; DELAY SUBROUTINES (accurate for ~12 MHz)
+;===========================================================
 
-DELAY2s:
-    MOV R7,#40
-D2_LOOP:
-    ACALL DELAY50ms
-    DJNZ R7,D2_LOOP
+; ~3 seconds
+DELAY3S:
+    MOV R7, #70
+D3_LOOP:
+    ACALL DELAY50MS
+    DJNZ R7, D3_LOOP
     RET
 
-DELAY5s:
-    MOV R7,#100
-D5_LOOP:
-    ACALL DELAY50ms
-    DJNZ R7,D5_LOOP
+; ~10 seconds
+DELAY10S:
+    MOV R7, #230
+D10_LOOP:
+    ACALL DELAY50MS
+    DJNZ R7, D10_LOOP
     RET
 
-DELAY50ms:
-    MOV R6,#200
-L1: MOV R5,#200
-L2: DJNZ R5,L2
-    DJNZ R6,L1
+; ~50 ms base delay
+DELAY50MS:
+    MOV R6, #200
+D50_OUTER:
+    MOV R5, #200
+D50_INNER:
+    DJNZ R5, D50_INNER
+    DJNZ R6, D50_OUTER
     RET
 
 END

@@ -1,4 +1,4 @@
-A51 MACRO ASSEMBLER  TEST                                                                 11/08/2025 01:12:54 PAGE     1
+A51 MACRO ASSEMBLER  TEST                                                                 11/12/2025 11:54:35 PAGE     1
 
 
 MACRO ASSEMBLER A51 V8.2.7.0
@@ -8,172 +8,132 @@ ASSEMBLER INVOKED BY: C:\Users\argha\Desktop\testing\C51\BIN\A51.EXE test.a51 SE
 
 LOC  OBJ            LINE     SOURCE
 
-                       1     ;============================================================
-                       2     ; 4-WAY TRAFFIC LIGHT SYSTEM (N, E, S, W)
-                       3     ; Ambulance Priority on INT0 (North direction gets priority)
-                       4     ;============================================================
-                       5     
-0000                   6     ORG 0000H
-0000 8003              7     SJMP START
-                       8     
-0003                   9     ORG 0003H
-0003 8050             10     SJMP AMBULANCE_ISR
-                      11     
-                      12     ;--------------------------
-                      13     ; Bit definitions
-                      14     ;--------------------------
-                      15     
-                      16     ; North Lights
-  0090                17     N_Red    BIT P1.0
-  0091                18     N_Yel    BIT P1.1
-  0092                19     N_Grn    BIT P1.2
-                      20     
-                      21     ; East Lights
-  0093                22     E_Red    BIT P1.3
-  0094                23     E_Yel    BIT P1.4
-  0095                24     E_Grn    BIT P1.5
-                      25     
-                      26     ; South Lights
-  00A0                27     S_Red    BIT P2.0
-  00A1                28     S_Yel    BIT P2.1
-  00A2                29     S_Grn    BIT P2.2
+                       1     ;===========================================================
+                       2     ; TWO-WAY TRAFFIC LIGHT CONTROLLER WITH AMBULANCE PRIORITY
+                       3     ; MCU   : AT89S52 (8051 family)
+                       4     ; XTAL  : 12 MHz
+                       5     ;===========================================================
+                       6     
+0000                   7     ORG 0000H
+0000 020030            8     LJMP START        ; Main program start
+                       9     
+                      10     ; --- Interrupt vector for external interrupt 0 (INT0) ---
+0003                  11     ORG 0003H
+0003 020064           12     LJMP AMB_ISR
+                      13     
+                      14     ;===========================================================
+                      15     ; BIT DEFINITIONS
+                      16     ;===========================================================
+                      17     
+                      18     ; Main Road lights (Road A)
+  0090                19     A_RED   BIT P1.0
+  0091                20     A_YEL   BIT P1.1
+  0092                21     A_GRN   BIT P1.2
+                      22     
+                      23     ; Cross Road lights (Road B)
+  0093                24     B_RED   BIT P1.3
+  0094                25     B_YEL   BIT P1.4
+  0095                26     B_GRN   BIT P1.5
+                      27     
+                      28     ; Ambulance indicator LED
+  00A0                29     AMB_IND BIT P2.0    ; P2.0 lights up during interrupt
                       30     
-                      31     ; West Lights
-  00A3                32     W_Red    BIT P2.3
-  00A4                33     W_Yel    BIT P2.4
-  00A5                34     W_Grn    BIT P2.5
-                      35     
-                      36     ;============================================================
-                      37     ; MAIN PROGRAM
-                      38     ;============================================================
-0005                  39     START:
-0005 8581A8           40         MOV IE, 10000001B    ; Enable EA + EX0
-0008 850188           41         MOV TCON, 00000001B  ; INT0 edge-triggered
+                      31     ;===========================================================
+                      32     ; MAIN PROGRAM
+                      33     ;===========================================================
+                      34     
+0030                  35     ORG 0030H
+0030                  36     START:
+0030 75A881           37         MOV IE, #10000001B     ; EA=1, EX0=1 enable external interrupt
+0033 758801           38         MOV TCON, #00000001B   ; Edge triggered INT0
+0036 C2A0             39         CLR AMB_IND             ; Ensure indicator off at start
+                      40     
+0038                  41     MAIN_LOOP:
                       42     
-000B                  43     MAIN_LOOP:
-                      44     
-                      45     ;============================================================
-                      46     ; PHASE 1: North-South GREEN, East-West RED
-                      47     ;============================================================
-                      48         ; NS = Green
-000B D292             49         SETB N_Grn
-000D C291             50         CLR  N_Yel
-000F C290             51         CLR  N_Red
+                      43         ; --- MAIN ROAD GREEN, CROSS ROAD RED ---
+0038 C2A0             44         CLR AMB_IND
+003A D292             45         SETB A_GRN
+003C D293             46         SETB B_RED
+003E C291             47         CLR  A_YEL
+0040 C290             48         CLR  A_RED
+0042 C294             49         CLR  B_YEL
+0044 C295             50         CLR  B_GRN
+0046 1182             51         ACALL DELAY10S
                       52     
-0011 D2A2             53         SETB S_Grn
-0013 C2A1             54         CLR  S_Yel
-0015 C2A0             55         CLR  S_Red
-                      56     
-                      57         ; EW = Red
-A51 MACRO ASSEMBLER  TEST                                                                 11/08/2025 01:12:54 PAGE     2
+                      53         ; --- MAIN ROAD YELLOW ---
+0048 C292             54         CLR  A_GRN
+004A D291             55         SETB A_YEL
+004C 117B             56         ACALL DELAY3S
+004E C291             57         CLR  A_YEL
+A51 MACRO ASSEMBLER  TEST                                                                 11/12/2025 11:54:35 PAGE     2
 
-0017 D293             58         SETB E_Red
-0019 C294             59         CLR  E_Yel
-001B C295             60         CLR  E_Grn
-                      61     
-001D D2A3             62         SETB W_Red
-001F C2A4             63         CLR  W_Yel
-0021 C2A5             64         CLR  W_Grn
-                      65     
-0023 116D             66         ACALL DELAY5s
-                      67     
-                      68     ;============================================================
-                      69     ; PHASE 2: North-South YELLOW, East-West RED
-                      70     ;============================================================
-0025 D291             71         SETB N_Yel
-0027 C292             72         CLR  N_Grn
+0050 D290             58         SETB A_RED
+                      59     
+                      60         ; --- CROSS ROAD GREEN ---
+0052 D295             61         SETB B_GRN
+0054 C293             62         CLR  B_RED
+0056 1182             63         ACALL DELAY10S
+                      64     
+                      65         ; --- CROSS ROAD YELLOW ---
+0058 C295             66         CLR  B_GRN
+005A D294             67         SETB B_YEL
+005C 117B             68         ACALL DELAY3S
+005E C294             69         CLR  B_YEL
+0060 D293             70         SETB B_RED
+                      71     
+0062 80D4             72         SJMP MAIN_LOOP
                       73     
-0029 D2A1             74         SETB S_Yel
-002B C2A2             75         CLR  S_Grn
-                      76     
-002D 1166             77         ACALL DELAY2s
-                      78     
-                      79     ;============================================================
-                      80     ; PHASE 3: East-West GREEN, North-South RED
-                      81     ;============================================================
-                      82         ; EW Green
-002F D295             83         SETB E_Grn
-0031 C294             84         CLR  E_Yel
-0033 C293             85         CLR  E_Red
-                      86     
-0035 D2A5             87         SETB W_Grn
-0037 C2A4             88         CLR  W_Yel
-0039 C2A3             89         CLR  W_Red
-                      90     
-                      91         ; NS Red
-003B D290             92         SETB N_Red
-003D C291             93         CLR  N_Yel
-003F C292             94         CLR  N_Grn
-                      95     
-0041 D2A0             96         SETB S_Red
-0043 C2A1             97         CLR  S_Yel
-0045 C2A2             98         CLR  S_Grn
-                      99     
-0047 116D            100         ACALL DELAY5s
-                     101     
-                     102     ;============================================================
-                     103     ; PHASE 4: East-West YELLOW, North-South RED
-                     104     ;============================================================
-0049 D294            105         SETB E_Yel
-004B C295            106         CLR  E_Grn
-                     107     
-004D D2A4            108         SETB W_Yel
-004F C2A5            109         CLR  W_Grn
-                     110     
-0051 1166            111         ACALL DELAY2s
+                      74     ;===========================================================
+                      75     ; AMBULANCE INTERRUPT SERVICE ROUTINE
+                      76     ;===========================================================
+0064                  77     AMB_ISR:
+0064 D2A0             78         SETB AMB_IND             ; Turn ON indicator on P2.0
+0066 D292             79         SETB A_GRN               ; Main road green
+0068 C290             80         CLR  A_RED
+006A C291             81         CLR  A_YEL
+006C D293             82         SETB B_RED
+006E C294             83         CLR  B_YEL
+0070 C295             84         CLR  B_GRN
+                      85     
+0072 1182             86         ACALL DELAY10S           ; 10 seconds ambulance priority
+                      87     
+0074 C2A0             88         CLR  AMB_IND             ; Turn OFF indicator after ISR
+0076 D290             89         SETB A_RED
+0078 C292             90         CLR  A_GRN
+007A 32               91         RETI
+                      92     
+                      93     ;===========================================================
+                      94     ; DELAY SUBROUTINES (accurate for ~12 MHz)
+                      95     ;===========================================================
+                      96     
+                      97     ; ~3 seconds
+007B                  98     DELAY3S:
+007B 7F46             99         MOV R7, #70
+007D                 100     D3_LOOP:
+007D 1189            101         ACALL DELAY50MS
+007F DFFC            102         DJNZ R7, D3_LOOP
+0081 22              103         RET
+                     104     
+                     105     ; ~10 seconds
+0082                 106     DELAY10S:
+0082 7FE6            107         MOV R7, #230
+0084                 108     D10_LOOP:
+0084 1189            109         ACALL DELAY50MS
+0086 DFFC            110         DJNZ R7, D10_LOOP
+0088 22              111         RET
                      112     
-0053 80B6            113         SJMP MAIN_LOOP
-                     114     
-                     115     ;============================================================
-                     116     ; AMBULANCE PRIORITY (INT0)
-                     117     ; Only NORTH gets green priority
-                     118     ;============================================================
-0055                 119     AMBULANCE_ISR:
-                     120     
-                     121         ; ALL directions red first
-0055 D290            122         SETB N_Red
-0057 D293            123         SETB E_Red
-A51 MACRO ASSEMBLER  TEST                                                                 11/08/2025 01:12:54 PAGE     3
-
-0059 D2A0            124         SETB S_Red
-005B D2A3            125         SETB W_Red
-                     126     
-                     127         ; NORTH green priority
-005D D292            128         SETB N_Grn
-005F C290            129         CLR  N_Red
-0061 C291            130         CLR  N_Yel
-                     131     
-0063 116D            132         ACALL DELAY5s     ; Give time for ambulance
-                     133     
-0065 32              134         RETI
-                     135     
-                     136     ;============================================================
-                     137     ; Delay routines
-                     138     ;============================================================
-                     139     
-0066                 140     DELAY2s:
-0066 7F28            141         MOV R7,#40
-0068                 142     D2_LOOP:
-0068 1174            143         ACALL DELAY50ms
-006A DFFC            144         DJNZ R7,D2_LOOP
-006C 22              145         RET
-                     146     
-006D                 147     DELAY5s:
-006D 7F64            148         MOV R7,#100
-006F                 149     D5_LOOP:
-006F 1174            150         ACALL DELAY50ms
-0071 DFFC            151         DJNZ R7,D5_LOOP
-0073 22              152         RET
-                     153     
-0074                 154     DELAY50ms:
-0074 7EC8            155         MOV R6,#200
-0076 7DC8            156     L1: MOV R5,#200
-0078 DDFE            157     L2: DJNZ R5,L2
-007A DEFA            158         DJNZ R6,L1
-007C 22              159         RET
-                     160     
-                     161     END
-A51 MACRO ASSEMBLER  TEST                                                                 11/08/2025 01:12:54 PAGE     4
+                     113     ; ~50 ms base delay
+0089                 114     DELAY50MS:
+0089 7EC8            115         MOV R6, #200
+008B                 116     D50_OUTER:
+008B 7DC8            117         MOV R5, #200
+008D                 118     D50_INNER:
+008D DDFE            119         DJNZ R5, D50_INNER
+008F DEFA            120         DJNZ R6, D50_OUTER
+0091 22              121         RET
+                     122     
+                     123     END
+A51 MACRO ASSEMBLER  TEST                                                                 11/12/2025 11:54:35 PAGE     3
 
 SYMBOL TABLE LISTING
 ------ ----- -------
@@ -181,32 +141,27 @@ SYMBOL TABLE LISTING
 
 N A M E             T Y P E  V A L U E   ATTRIBUTES
 
-AMBULANCE_ISR. . .  C ADDR   0055H   A   
-D2_LOOP. . . . . .  C ADDR   0068H   A   
-D5_LOOP. . . . . .  C ADDR   006FH   A   
-DELAY2S. . . . . .  C ADDR   0066H   A   
-DELAY50MS. . . . .  C ADDR   0074H   A   
-DELAY5S. . . . . .  C ADDR   006DH   A   
-E_GRN. . . . . . .  B ADDR   0090H.5 A   
-E_RED. . . . . . .  B ADDR   0090H.3 A   
-E_YEL. . . . . . .  B ADDR   0090H.4 A   
+AMB_IND. . . . . .  B ADDR   00A0H.0 A   
+AMB_ISR. . . . . .  C ADDR   0064H   A   
+A_GRN. . . . . . .  B ADDR   0090H.2 A   
+A_RED. . . . . . .  B ADDR   0090H.0 A   
+A_YEL. . . . . . .  B ADDR   0090H.1 A   
+B_GRN. . . . . . .  B ADDR   0090H.5 A   
+B_RED. . . . . . .  B ADDR   0090H.3 A   
+B_YEL. . . . . . .  B ADDR   0090H.4 A   
+D10_LOOP . . . . .  C ADDR   0084H   A   
+D3_LOOP. . . . . .  C ADDR   007DH   A   
+D50_INNER. . . . .  C ADDR   008DH   A   
+D50_OUTER. . . . .  C ADDR   008BH   A   
+DELAY10S . . . . .  C ADDR   0082H   A   
+DELAY3S. . . . . .  C ADDR   007BH   A   
+DELAY50MS. . . . .  C ADDR   0089H   A   
 IE . . . . . . . .  D ADDR   00A8H   A   
-L1 . . . . . . . .  C ADDR   0076H   A   
-L2 . . . . . . . .  C ADDR   0078H   A   
-MAIN_LOOP. . . . .  C ADDR   000BH   A   
-N_GRN. . . . . . .  B ADDR   0090H.2 A   
-N_RED. . . . . . .  B ADDR   0090H.0 A   
-N_YEL. . . . . . .  B ADDR   0090H.1 A   
+MAIN_LOOP. . . . .  C ADDR   0038H   A   
 P1 . . . . . . . .  D ADDR   0090H   A   
 P2 . . . . . . . .  D ADDR   00A0H   A   
-START. . . . . . .  C ADDR   0005H   A   
-S_GRN. . . . . . .  B ADDR   00A0H.2 A   
-S_RED. . . . . . .  B ADDR   00A0H.0 A   
-S_YEL. . . . . . .  B ADDR   00A0H.1 A   
+START. . . . . . .  C ADDR   0030H   A   
 TCON . . . . . . .  D ADDR   0088H   A   
-W_GRN. . . . . . .  B ADDR   00A0H.5 A   
-W_RED. . . . . . .  B ADDR   00A0H.3 A   
-W_YEL. . . . . . .  B ADDR   00A0H.4 A   
 
 
 REGISTER BANK(S) USED: 0 

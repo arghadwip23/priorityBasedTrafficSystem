@@ -11,7 +11,7 @@ void loop() {
     char c = Serial.read();
     if (c == '1') {
       digitalWrite(interruptPin, HIGH);
-      delay(200);
+      delay(500);
       digitalWrite(interruptPin, LOW);
     }
   }
